@@ -1,18 +1,31 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const uuidv1 = require("uuid/v1");
+const sha256 = require("sha256");
+const NodeCache = require( "node-cache" );
+const myCache = new NodeCache();
+myCache.set("users","-1" );
 
 const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: false}));
-
 const users = [];
 
-
 app.get("/users",(req, resp)=> {
-    resp.send({
-        payload:  users
-    })
+    const {headers} = req;
+    console.log(headers);
+    const cache = headers["if-none-match"];
+    console.log("if none match : ",cache);
+    console.log("cache : ",myCache.get("users"));
+    const usercahce = myCache.get("users");
+    if(usercahce === cache) {
+        resp.sendStatus(304)
+    }else {
+        resp.set("ETag",usercahce).send({
+            payload:  users
+        })
+    }
+    
 });
 
 app.post("/users",(req, resp)=> {
@@ -25,7 +38,9 @@ app.post("/users",(req, resp)=> {
             userid: id
         }
     }
-    resp.send(response)
+    const cache = sha256(JSON.stringify(users))
+    myCache.set("users",cache );
+    resp.send(response);
 });
 
 app.listen(3000, ()=> {
